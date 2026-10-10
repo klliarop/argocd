@@ -77,11 +77,20 @@ if ! command -v jq &>/dev/null; then
 fi
 info "jq        : $(jq --version)"
 
-# helm
+# helm — install automatically from Red Hat CDN if missing
 if ! command -v helm &>/dev/null; then
-  error "helm is not installed. Install it first: https://helm.sh/docs/intro/install/"
+  warn "helm not found — installing now..."
+  HELM_TGZ=$(mktemp /tmp/helm-XXXXXX.tar.gz)
+  wget -qO "$HELM_TGZ" \
+    "https://developers.redhat.com/content-gateway/file/pub/cgw/helm/3.22.0-90/helm-linux-amd64.tar.gz" \
+    || { error "Failed to download helm. Check network connectivity and try again."; }
+  tar -xzvf "$HELM_TGZ" -C /tmp helm-linux-amd64
+  sudo mv /tmp/helm-linux-amd64 /usr/local/bin/helm
+  rm -f "$HELM_TGZ"
+  info "helm installed: $(helm version --short)"
+else
+  info "helm      : $(helm version --short)"
 fi
-info "helm      : $(helm version --short)"
 
 # oc
 info "oc        : $(oc version --client -o json | jq -r '.clientVersion.gitVersion')"
