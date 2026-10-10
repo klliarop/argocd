@@ -15,7 +15,7 @@ spec:
   # ── Source: Git repo ────────────────────────────────────────────────────────
   source:
     # EDIT: your GitHub repo URL
-    repoURL: https://github.com/<your-org>/pull-secret-rotation.git   # ← REPLACE THIS
+    repoURL: https://github.com/klliarop/argocd.git  # ← REPLACE THIS
     targetRevision: main               # branch to track
     path: gitops/overlays/uat          # folder ArgoCD will apply
 
@@ -24,7 +24,7 @@ spec:
     # EDIT: get this from:  oc whoami --show-server
     # Use 'https://kubernetes.default.svc' if ArgoCD is running ON the UAT cluster.
     # Otherwise use the cluster's API server URL as registered in ArgoCD.
-    server: https://api.uat-cluster.example.com:6443   # ← REPLACE THIS
+    server: https://api.itz-0cy9gu.infra01-lb.lon04.techzone.ibm.com:6443   # ← REPLACE THIS
     namespace: openshift-config
 
   # ── Sync policy ─────────────────────────────────────────────────────────────
