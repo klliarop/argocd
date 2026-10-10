@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pull-secret-rotation-uat
+  namespace: openshift-gitops          # ArgoCD namespace — adjust if different
+  labels:
+    environment: uat
+    app.kubernetes.io/component: pull-secret-rotation
+  # Prevent ArgoCD from deleting the real Secret if this Application is deleted
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default                     # ArgoCD project — adjust if you have a dedicated one
+
+  # ── Source: Git repo ────────────────────────────────────────────────────────
+  source:
+    # EDIT: your GitHub repo URL
+    repoURL: https://github.com/<your-org>/pull-secret-rotation.git   # ← REPLACE THIS
+    targetRevision: main               # branch to track
+    path: gitops/overlays/uat          # folder ArgoCD will apply
+
+  # ── Destination: UAT cluster ────────────────────────────────────────────────
+  destination:
+    # EDIT: get this from:  oc whoami --show-server
+    # Use 'https://kubernetes.default.svc' if ArgoCD is running ON the UAT cluster.
+    # Otherwise use the cluster's API server URL as registered in ArgoCD.
+    server: https://api.uat-cluster.example.com:6443   # ← REPLACE THIS
+    namespace: openshift-config
+
+  # ── Sync policy ─────────────────────────────────────────────────────────────
+  syncPolicy:
+    automated:
+      prune: false       # Do NOT auto-delete the secret if the file is removed from Git
+      selfHeal: true     # Re-apply if someone manually edits the secret on the cluster
+    syncOptions:
+      - CreateNamespace=false          # openshift-config already exists
+      - RespectIgnoreDifferences=true  # see ignoreDifferences below
+      - ServerSideApply=true           # required for openshift-config secrets
+
+  # ── Ignore differences ──────────────────────────────────────────────────────
+  # ArgoCD will ignore any drift in the .dockerconfigjson data field that was
+  # added outside of Git (e.g. by OCP operators). Only the SealedSecret object
+  # itself is tracked, not the decrypted Secret.
+  ignoreDifferences:
+    - group: bitnami.com
+      kind: SealedSecret
+      jsonPointers:
+        - /status

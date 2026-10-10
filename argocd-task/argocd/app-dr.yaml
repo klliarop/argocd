@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pull-secret-rotation-dr
+  namespace: openshift-gitops          # ArgoCD namespace — adjust if different
+  labels:
+    environment: dr
+    app.kubernetes.io/component: pull-secret-rotation
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default                     # ArgoCD project — adjust if you have a dedicated one
+
+  # ── Source: Git repo ────────────────────────────────────────────────────────
+  source:
+    # TODO: Replace with your actual GitHub repo URL
+    repoURL: https://github.com/<your-org>/<your-repo>.git
+    targetRevision: main
+    path: gitops/overlays/dr
+
+  # ── Destination: DR cluster ─────────────────────────────────────────────────
+  destination:
+    # TODO: Replace with your DR cluster API URL
+    server: https://api.dr-cluster.example.com:6443
+    namespace: openshift-config
+
+  # ── Sync policy ─────────────────────────────────────────────────────────────
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - RespectIgnoreDifferences=true
+      - ServerSideApply=true
+
+  ignoreDifferences:
+    - group: bitnami.com
+      kind: SealedSecret
+      jsonPointers:
+        - /status
