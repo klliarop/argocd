@@ -8,7 +8,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: pull-secret-rotation-TIMESTAMP
+  name: pull-secret-rotation-20261010-121943TIMESTAMP
   namespace: openshift-config
   labels:
     app.kubernetes.io/component: pull-secret-rotation
