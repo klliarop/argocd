@@ -115,24 +115,22 @@ fi
 section "Step 3/5 — Install Sealed Secrets controller on cluster"
 
 SEALED_SECRETS_NS="kube-system"
-SEALED_SECRETS_RELEASE="sealed-secrets"
 
-# Check if already installed
-if helm status "$SEALED_SECRETS_RELEASE" -n "$SEALED_SECRETS_NS" &>/dev/null; then
+# Check if already installed by looking for the controller deployment
+if oc get deployment sealed-secrets-controller -n "$SEALED_SECRETS_NS" &>/dev/null; then
   info "Sealed Secrets controller already installed — skipping."
-  info "Current version: $(helm list -n $SEALED_SECRETS_NS -f $SEALED_SECRETS_RELEASE -o json | jq -r '.[0].app_version')"
 else
-  info "Installing Sealed Secrets controller..."
-  helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets 2>/dev/null || true
-  helm repo update sealed-secrets
+  info "Installing Sealed Secrets controller via manifest (no Helm repo needed)..."
+  KUBESEAL_VERSION="0.27.2"
+  MANIFEST_URL="https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/controller.yaml"
 
-  helm install "$SEALED_SECRETS_RELEASE" sealed-secrets/sealed-secrets \
-    -n "$SEALED_SECRETS_NS" \
-    --set fullnameOverride=sealed-secrets-controller \
-    --wait \
-    --timeout 3m
+  info "Downloading manifest from: $MANIFEST_URL"
+  wget -qO /tmp/sealed-secrets-controller.yaml "$MANIFEST_URL" \
+    || { error "Failed to download Sealed Secrets manifest. Check network connectivity."; }
 
-  info "Sealed Secrets controller installed."
+  oc apply -f /tmp/sealed-secrets-controller.yaml
+  rm -f /tmp/sealed-secrets-controller.yaml
+  info "Sealed Secrets controller manifest applied."
 fi
 
 # Verify the controller pod is running
@@ -181,3 +179,4 @@ echo "    3. git add gitops/overlays/${ENV}/sealed-secret.yaml"
 echo "    4. git commit -m \"chore: rotate pull secret for ${ENV}\""
 echo "    5. git push"
 echo "    → ArgoCD will propagate the change to the cluster automatically."
+
