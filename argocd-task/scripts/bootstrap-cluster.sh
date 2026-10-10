@@ -134,10 +134,11 @@ else
 fi
 
 # Verify the controller pod is running
-info "Verifying controller pod..."
+info "Verifying controller pod is scheduled (waiting up to 60s)..."
+sleep 5
 oc wait pod \
   -n "$SEALED_SECRETS_NS" \
-  -l app.kubernetes.io/name=sealed-secrets \
+  -l name=sealed-secrets-controller \
   --for=condition=Ready \
   --timeout=120s
 info "Controller is Ready."
@@ -179,4 +180,3 @@ echo "    3. git add gitops/overlays/${ENV}/sealed-secret.yaml"
 echo "    4. git commit -m \"chore: rotate pull secret for ${ENV}\""
 echo "    5. git push"
 echo "    → ArgoCD will propagate the change to the cluster automatically."
-
