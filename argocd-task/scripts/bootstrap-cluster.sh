@@ -98,18 +98,14 @@ info "oc        : $(oc version --client -o json | jq -r '.clientVersion.gitVersi
 # kubeseal — install automatically if missing
 if ! command -v kubeseal &>/dev/null; then
   warn "kubeseal not found — installing now..."
-  KUBESEAL_VERSION=$(curl -s https://api.github.com/repos/bitnami-labs/sealed-secrets/releases/latest | jq -r .tag_name)
-  KUBESEAL_VERSION_CLEAN="${KUBESEAL_VERSION#v}"
-  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-  ARCH=$(uname -m)
-  [[ "$ARCH" == "x86_64" ]] && ARCH="amd64"
-  [[ "$ARCH" == "aarch64" ]] && ARCH="arm64"
-
-  curl -Lo /tmp/kubeseal.tar.gz \
-    "https://github.com/bitnami-labs/sealed-secrets/releases/download/${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION_CLEAN}-${OS}-${ARCH}.tar.gz"
-  tar xf /tmp/kubeseal.tar.gz -C /tmp kubeseal
+  KUBESEAL_VERSION="0.27.2"
+  info "Downloading kubeseal ${KUBESEAL_VERSION}..."
+  wget -O /tmp/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz \
+    "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" \
+    || { error "Failed to download kubeseal. Check network connectivity."; }
+  tar -xvzf /tmp/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz -C /tmp kubeseal
   sudo mv /tmp/kubeseal /usr/local/bin/kubeseal
-  rm -f /tmp/kubeseal.tar.gz
+  rm -f /tmp/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz
   info "kubeseal installed: $(kubeseal --version)"
 else
   info "kubeseal  : $(kubeseal --version)"
