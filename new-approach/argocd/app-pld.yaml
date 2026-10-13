@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pull-secret-rotation-pld
+  namespace: openshift-gitops
+  labels:
+    environment: pld
+    app.kubernetes.io/component: pull-secret-rotation
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/klliarop/argocd.git
+    targetRevision: main
+    path: argocd-task/new-approach/gitops/overlays/pld
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-config
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

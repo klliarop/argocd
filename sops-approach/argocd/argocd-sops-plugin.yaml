@@ -1,0 +1,117 @@
+# ArgoCD SOPS decryption plugin setup for OpenShift GitOps operator.
+#
+# This patches the ArgoCD repo-server to:
+#   1. Install sops + age binaries via an init container
+#   2. Register a custom ConfigManagementPlugin that runs kustomize
+#      with SOPS decryption before applying manifests
+#
+# Apply with:
+#   oc apply -f sops-approach/argocd/argocd-sops-plugin.yaml
+#
+# The age private key must exist as a secret in openshift-gitops namespace:
+#   oc create secret generic age-key \
+#     -n openshift-gitops \
+#     --from-file=key.txt=/path/to/age-private-key.txt
+---
+# ConfigManagementPlugin tells ArgoCD how to decrypt SOPS files
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmp-sops
+  namespace: openshift-gitops
+data:
+  plugin.yaml: |
+    apiVersion: argoproj.io/v1alpha1
+    kind: ConfigManagementPlugin
+    metadata:
+      name: kustomize-sops
+    spec:
+      version: v1.0
+      init:
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            # Decrypt all .enc.yaml files in the directory using sops
+            for f in $(find . -name "*.enc.yaml"); do
+              echo "Decrypting $f..."
+              sops --decrypt "$f" > "${f%.enc.yaml}.yaml"
+            done
+      generate:
+        command: ["/bin/sh", "-c"]
+        args:
+          - "kustomize build ."
+      discover:
+        find:
+          glob: "**/kustomization.yaml"
+---
+# Patch the ArgoCD repo-server deployment to:
+#   - install sops + age via init container
+#   - mount the age private key
+#   - run the CMP sidecar
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openshift-gitops-repo-server
+  namespace: openshift-gitops
+spec:
+  template:
+    spec:
+      volumes:
+        - name: age-key
+          secret:
+            secretName: age-key
+        - name: sops-binaries
+          emptyDir: {}
+        - name: cmp-plugin
+          configMap:
+            name: argocd-cmp-sops
+        - name: cmp-tmp
+          emptyDir: {}
+      initContainers:
+        - name: install-sops-age
+          image: alpine:3.19
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Installing sops..."
+              wget -qO /binaries/sops \
+                "https://github.com/getsops/sops/releases/download/v3.8.1/sops-v3.8.1.linux.amd64"
+              chmod +x /binaries/sops
+
+              echo "Installing age..."
+              wget -qO /tmp/age.tar.gz \
+                "https://github.com/FiloSottile/age/releases/download/v1.1.1/age-v1.1.1-linux-amd64.tar.gz"
+              tar xf /tmp/age.tar.gz -C /tmp
+              cp /tmp/age/age /binaries/age
+              cp /tmp/age/age-keygen /binaries/age-keygen
+              chmod +x /binaries/age /binaries/age-keygen
+              echo "Done."
+          volumeMounts:
+            - name: sops-binaries
+              mountPath: /binaries
+      containers:
+        - name: kustomize-sops
+          image: quay.io/argoproj/argocd:latest
+          command: [/var/run/argocd/argocd-cmp-server]
+          env:
+            - name: SOPS_AGE_KEY_FILE
+              value: /age-key/key.txt
+          volumeMounts:
+            - name: age-key
+              mountPath: /age-key
+              readOnly: true
+            - name: sops-binaries
+              mountPath: /usr/local/bin/sops
+              subPath: sops
+            - name: sops-binaries
+              mountPath: /usr/local/bin/age
+              subPath: age
+            - name: cmp-plugin
+              mountPath: /home/argocd/.config/cmp-server/config/plugin.yaml
+              subPath: plugin.yaml
+            - name: cmp-tmp
+              mountPath: /tmp
+            - mountPath: /var/run/argocd
+              name: var-files

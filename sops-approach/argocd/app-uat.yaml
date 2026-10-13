@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pull-secret-rotation-uat
+  namespace: openshift-gitops
+  labels:
+    environment: uat
+    app.kubernetes.io/component: pull-secret-rotation
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/klliarop/argocd.git
+    targetRevision: main
+    path: argocd-task/sops-approach/gitops/overlays/uat
+    plugin:
+      name: kustomize-sops   # uses the SOPS decryption plugin installed by bootstrap
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-config
+  syncPolicy:
+    automated:
+      prune: false            # NEVER prune — would delete pull-secret
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pull-secret-rotation-dr
+  namespace: openshift-gitops
+  labels:
+    environment: dr
+    app.kubernetes.io/component: pull-secret-rotation
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/klliarop/argocd.git
+    targetRevision: main
+    path: argocd-task/sops-approach/gitops/overlays/dr
+    plugin:
+      name: kustomize-sops
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-config
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

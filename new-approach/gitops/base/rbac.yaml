@@ -1,0 +1,24 @@
+# ClusterRole: minimal permissions needed to patch the global pull secret
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pull-secret-rotator
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["pull-secret"]
+    verbs: ["get", "patch", "update"]
+---
+# Bind the ServiceAccount to the ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pull-secret-rotator
+subjects:
+  - kind: ServiceAccount
+    name: pull-secret-rotator
+    namespace: openshift-config
+roleRef:
+  kind: ClusterRole
+  name: pull-secret-rotator
+  apiGroup: rbac.authorization.k8s.io
